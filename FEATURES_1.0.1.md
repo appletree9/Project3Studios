@@ -6,7 +6,7 @@ This release repairs armature posing and adds simpler rig choices and real rotat
 
 Extract `Project3Studios_HEADER_SLIDER_R8.zip`. Its website files are at the ZIP root: upload those files directly to your repository root, replacing the existing `index.html`, `sw.js` and other app files. There is no enclosing `app/` folder in this upload ZIP. Do not upload the ZIP itself as the website.
 
-Keep anatomy-assets.js, manifest.webmanifest and the icons alongside index.html. Pages should deploy your source branch's `/ (root)` directory. No build step is needed. After deployment, the header must include **HEADER SLIDER r8**. Save your project before accepting an in-app update/reload notification. Three.js and GLB import/export modules require internet on first use. The service-worker cache ends in `r8`.
+Keep anatomy-assets.js, manifest.webmanifest and the icons alongside index.html. Pages should deploy your source branch's `/ (root)` directory. No build step is needed. After deployment, the header shows **FULL HUMAN ARMATURE · VERSION 1.0.1**. Save your project before accepting an in-app update/reload notification. Three.js and GLB import/export modules require internet on first use. The service-worker cache ends in `r8`.
 
 ## Header slider
 

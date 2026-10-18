@@ -1374,7 +1374,7 @@ function boot(){const theme=document.getElementById('themeSwitch');if(!theme||do
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();</script>
 <script id="p3-pwa-register">
-(()=>{const brand=document.getElementById('brand');if(brand){const label=document.createElement('small');label.id='p3BuildLabel';label.textContent='FULL HUMAN ARMATURE · VERSION 1.0.1 · ARMATURE STUDIO · HEADER SLIDER r8';label.style.cssText='display:block;font:700 9px system-ui;letter-spacing:.4px;color:#9ac8ff';brand.append(label)}
+(()=>{const brand=document.getElementById('brand');if(brand){const label=document.createElement('small');label.id='p3BuildLabel';label.textContent='FULL HUMAN ARMATURE · VERSION 1.0.1';label.style.cssText='display:block;font:700 9px system-ui;letter-spacing:.4px;color:#9ac8ff';brand.append(label)}
 if(!('serviceWorker' in navigator)||(location.protocol!=='https:'&&location.hostname!=='localhost'))return;
 const beganControlled=!!navigator.serviceWorker.controller;
 navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!beganControlled||document.getElementById('p3UpdateReady'))return;const button=document.createElement('button');button.id='p3UpdateReady';button.textContent='App updated · Save your project, then tap here to reload';button.style.cssText='position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:9999;max-width:90vw;background:#2462a3;color:white';button.onclick=()=>location.reload();document.body.append(button)});

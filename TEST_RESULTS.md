@@ -38,3 +38,5 @@ Tests captured the exact generated Blob bytes instead of relying on the OS/brows
 ## Header slider r8
 
 Tested the revised app in desktop (1440px, then resized to 900px) and phone (390px) Chrome contexts. Every main header action (Sculpt, Camera, Undo, Redo, Focus, Save, Open, Export OBJ, theme and Armature) was visible and could be scrolled fully into view. Native slider Home/End reached both ends with synchronized disabled arrow buttons. Arrow scrolling worked. The actual Armature button opened its panel and Close worked after reparenting. Phone native swipe and touch slider dragging worked. Desktop header dragging and window resizing retained the slider behavior. The bottom object bar was absent. No application JavaScript errors were recorded. Existing r7 armature/animation checks above were run before this header-only revision; its Armature action was rechecked in r8.
+
+Header text cleanup: removed ARMATURE STUDIO · HEADER SLIDER r8 from the visible build label. All functionality retained. Cache suffix r8-clean. Static source check passed.
