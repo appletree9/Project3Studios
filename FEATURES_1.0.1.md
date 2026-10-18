@@ -67,3 +67,7 @@ World transforms are baked into the result. The first checked object in scene-li
 See TEST_RESULTS.md for final checks and limits. Ordinary OBJ/mesh exports use the rest sculpt; use the Armature GLB exporter for the skin and animation.
 
 Home page updated with current sculpting, blending, armature, posing, animation and export features, plus an application ownership and creator-content notice. Cache: r9-home.
+
+Latest additions: Scale shows six colored face nodes; stretching one dimension keeps the opposite face fixed. Move retains its axis arrows. Render quality offers Standard, High and Ultra supersampling with lossless PNG output and device limits. Cache r11-render-quality.
+
+Organized settings: expandable categories for Objects & transforms; Add & import models; Mesh editing & blending; Materials & painting; Armatures & animation; Lighting; Camera & lens; Render & image quality; Viewport & measurements; Projects & exports; Interface & layout. Find settings dropdown jumps to a category. Sculpt brushes and symmetry are together on the left. Project/export and interface controls moved from the header into their categories. Existing control nodes and handlers retained. Mobile shortcuts open the corresponding category. Cache r12-organized-settings.
