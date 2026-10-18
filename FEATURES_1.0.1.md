@@ -79,3 +79,5 @@ Latest features (r19-scene-groups):
 - Mesh editing & blending > Face Editor: tap to select/deselect triangles, grow across shared edges, invert, clear, delete selected faces and undo. Deleting faces intentionally creates openings. Face edits preserve vertex positions/colors and saved rig weight arrays.
 - Objects & transforms > Scene Groups / Layers: check objects, assign/rename groups, ungroup, target the active object, checked objects, a named group or all scene objects. Batch move, rotate and uniformly scale around a shared center; hide/show and focus. Group controls are separate from single-object viewport handles. Group membership and hidden state persist in projects and undo. Hidden objects are excluded from whole-scene OBJ/GLB/STL exports.
 - The requested previous backup remains unchanged.
+
+Current version: Scene Groups / Layers removed. Scene Objects uses the standard object list. Face Editor and all 23 closed welded presets remain.

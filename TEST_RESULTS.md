@@ -55,3 +55,5 @@ Closed presets: audited all 23 presets; zero open boundary edges, zero edges wit
 Face Editor: real viewport click selected one face; Grow selected four; Delete removed exactly four triangles without changing vertex positions. Undo/redo and snapshot restore preserved triangle indices; Clear and overlay visibility verified. See face-editor-results.json.
 Scene groups: grouped two of three cubes; movement affected only group members; shared-center scale and rotation preserved group spacing; hide/show and undo/redo worked. Actual project save and reopen retained names, group membership, hidden state and transforms. All-scene target affected all three. See scene-groups-results.json.
 Regression: all six snapped directional scale handles and three rotation handles passed; Standard/High/Ultra PNG export and editor state restoration passed. No browser errors.
+
+Scene Groups removal: source checked for no remaining scene group UI, visibility filtering or layer metadata handlers. Face Editor selection/delete/undo checks and all 23 closed-shape topology checks rerun.
