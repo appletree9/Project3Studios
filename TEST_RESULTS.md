@@ -48,3 +48,5 @@ Organized settings: checked 24 representative controls in correct categories; no
 Home cleanup: removed the requested description paragraph and verified both home buttons and copyright notice remain in the upload archive.
 
 Transform snapping: all six face handles tested with 25 percent snapping on a rotated cube; opposite faces stay fixed and undo restores position/scale. Rotation ring drags for X/Y/Z produced 75/60/45 degree changes, all multiples of selected 15 degree increment. No browser errors.
+
+Three-option snapping layout: browser verified all three cards share a row in the Inspector. Six directional scale and three rotation snapping checks passed again with no browser errors.
