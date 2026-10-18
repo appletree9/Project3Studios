@@ -1,13 +1,13 @@
-Project3Studios V1 Sculpt 1.0.1 — GitHub Pages
+Project3Studios V1 Sculpt 1.0.1 — Header Slider r8
 
-Extract the APP ZIP. Upload the CONTENTS of app/ to your Pages branch root.
-Keep index.html, anatomy-assets.js, sw.js, manifest.webmanifest and icons together.
-Settings > Pages > Deploy from a branch > main (or your source branch) > / (root).
-No build step is needed. Do not upload the ZIP itself as the website.
+Extract Project3Studios_HEADER_SLIDER_R8.zip. Upload its files directly to your
+GitHub Pages repository root, replacing the existing files. This upload ZIP has
+NO enclosing app/ folder. Keep index.html, anatomy-assets.js, sw.js, manifest and
+all icons together. Do not upload the ZIP itself as the website.
 
-https://appletree9.github.io/Project3Studios/
-
-After deployment refresh once. Header: FULL HUMAN ARMATURE · VERSION 1.0.1.
-The service worker cache version is updated. First use needs internet for Three.js.
-Read FEATURES_1.0.1.md for skeleton, merge, materials and device limits.
-This release has NOT been published automatically.
+Settings > Pages > Deploy from a branch > your branch > / (root).
+No build step. Address: https://appletree9.github.io/Project3Studios/
+After deployment, the header includes HEADER SLIDER r8.
+Save your project before accepting an in-app update/reload notification.
+Read FEATURES_1.0.1.md for the rig, pose and animation workflow.
+This chat has NOT published the release automatically.

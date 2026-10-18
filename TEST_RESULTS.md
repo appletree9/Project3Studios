@@ -1,31 +1,40 @@
-# Version 1.0.1 verification — 18 October 2026
+# Verification — Header Slider r8 / Armature Studio r7
 
-Automated tests ran against the final local app in headless desktop Chrome with WebGL software rendering, plus a touch-enabled mobile browser context. No application JavaScript errors were recorded. All inline JavaScript passed Node syntax checks.
+18 October 2026. Final local app tested in headless Chrome with WebGL software rendering and a touch-enabled phone-sized context. All inline JavaScript and service-worker syntax checks passed. No application JavaScript errors were recorded in the final runs.
 
-Passed:
+## Armature posing and presets
 
-- Male and female detailed body meshes: each 54,582 vertices and a full 82-joint skin. All four weight slots were checked for valid bone indices and weights summing to one.
-- Lower-arm pose produced actual skinned vertex movement (maximum sampled displacement approximately 0.289 male / 0.216 female, in model units).
-- Rest edits, rig Undo/Redo, hierarchy/pose restoration, and switching between neutral rest and retained pose rotations.
-- Actual mouse pointer selection and dragging of a viewport head joint; actual emulated touch start/move/end selection and dragging.
-- Existing GLB export button generated a valid GLB with an 82-joint skin. The binary JSON chunk was inspected. The OS/browser save-to-Downloads step was canceled by this environment, so subsequent export tests captured the exact generated Blob bytes through a test-only link interception. No such interception is shipped.
-- Existing Save Project button serialized the edited skeleton/weights; reopening through the real file input restored the project. Test prompts were accepted automatically.
-- Two transformed overlapping sphere solids fused into one regular indexed mesh at Detail 24 / smoothness 6 (3,032 triangles). Every undirected boundary edge occurred in exactly two triangles: no open edges or duplicated intersection seams. Voxel six-neighbor connectivity was checked by the implementation.
-- The fused surface accepted the existing Inflate sculpt operation. Main Undo restored both sources; Redo restored the merged mesh. Snapshot restoration and actual project Save/Open preserved the merged geometry and sculpt edits.
-- A spatially separated added solid was rejected and both input objects remained in the scene.
-- Touch-context checkbox selection in the Blend list.
-- Object Move/Rotate/Scale handles on an already rotated, scaled, off-center cube: actual mouse and emulated touch drags changed only the intended transform, with no mesh-vertex or camera changes. Undo/Redo and selected-object retention passed for all three modes.
-- Object movement grid snapping, changed selection, actual project save/reopen of transforms, and toolbar dragging with mouse and touch passed. A Chrome emulated pen pointer drag passed; a physical pen was not tested.
+- Created Simple (3 joints), Full Human (82), Humanoid (22), and Custom Chain (2) through the actual UI. All opened in Pose with enabled controls.
+- Checked all vertex influences for finite normalized weights, valid bone indices and successful skin deformation. Sample maximum displacements in the preset tests were approximately 0.756, 0.859, 0.859 and 0.301 model units, respectively.
+- Actual mouse range input and degree fields changed bone rotations and deformed the skinned mesh. Pose Undo/Redo passed.
+- Edit joints reset preview rotations to neutral while preserving the separate pose. Rest coordinate editing and return to the preserved pose passed.
+- Custom child addition and branch deletion passed. A mouse drag on a local rotation ring changed the selected joint.
+- Actual emulated touch slider dragging and touch viewport-joint posing passed.
+- A saved rig containing a deliberately invalid/null weight was reopened; invalid weights were recalculated and all resulting weights were finite and normalized.
 
-Desktop and touch screenshots were visually inspected during development. Generic skeleton placement and fused surfaces were visible; screenshots also show the inherited draggable-panel layout, which users can rearrange/minimize.
+## Animation and export
 
-Limits: these are representative tests, not exhaustive validation of every model, edit, legacy import/export/tool, browser, or device. Physical iPhone speed/memory, every external GLB consumer, production-quality finger weights, arbitrary open/nonmanifold inputs and complex accepted remesh workloads remain unverified. The mesh union is resolution-dependent; thin contacts can be rejected or fine details lost. Source meshes are preserved on reported fusion failure. No automatic connecting bridge is implemented; the UI requires sufficient contact/overlap.
+- On a detailed Female Body, saved whole-pose keys at 0 and 1 seconds, with a 60° lower-arm rotation in the second key.
+- At 0.5 seconds the sampled rotation was 30°, matching quaternion interpolation.
+- Play advanced the clock and the joint pose; Pause stopped progression; Start returned to 0. Key Undo/Redo passed.
+- Save Project through the actual button and reopening through the real project file input preserved the 82-joint rig and both keys. Closing/reopening Armature retained the animation.
+- Export produced valid GLB bytes containing an 82-joint skin and 82 rotation channels. Reimported those exact bytes with GLTFLoader, played the imported clip with AnimationMixer, and verified the 30° midpoint rotation.
 
-PWA files and anatomy assets were retained. Service-worker JavaScript passed syntax checking; new cache naming was inspected. Full offline installation/update behavior was not rerun on a physical device. The published website was not changed.
+## Existing features retained
 
-Follow-up revision: the bottom Object Handles toolbar was removed by request. Earlier toolbar-drag checks apply to the earlier build. The revised app passed JavaScript syntax and static checks confirming no toolbar code and retained Inspector transform buttons. A Chrome startup recheck was attempted but blocked by network access in this turn.
+- Inspector Move/Rotate/Scale buttons were visible and clicked; each transformed an object correctly with mouse and touch, without changing mesh vertices or camera position. Undo/Redo passed.
+- Viewport object Move/Rotate/Scale handles passed mouse/touch drags on an already transformed object. Move grid snapping, selected-object tracking, Undo/Redo and project save/reopen passed. Chrome-emulated pen dragging passed; physical pen hardware was not tested.
+- Bottom `p3AxisDock` toolbar remained absent.
+- Blend/Merge regression: two overlapping transformed solids became a connected 3,032-triangle indexed surface. All boundary edges were shared by exactly two triangles. Existing sculpting, Undo/Redo and snapshot restoration passed; disconnected input was rejected and source objects remained. Earlier actual merged-project Save/Open checks are retained in development/test-results.json.
+- Detailed anatomy assets, icons, manifest and PWA structure were retained. Service worker uses a fresh r7 cache. Frozen 1.0.0 app hashes were checked against its saved inventory during packaging. ZIP entries were compared to their source files with SHA-256.
 
-Final user-requested revision: removed all Move/Rotate/Scale object toolbar buttons, including Inspector transformTools, and the object viewport gizmo geometry and capture handlers. Skeleton joint handles remain. Static absence and inline syntax checks passed. Earlier object-handle tests are historical and do not describe this revision. Cache revision: p3sculpt-armature-1.0.1-r3.
+## Limits
 
-Correction r4: restored Inspector transformTools (Move, Rotate, Scale, Sculpt) and original mode handlers. The user intended ONLY removal of the bottom p3AxisDock toolbar. Bottom toolbar remains absent; sidebar tools and existing object-drag implementation remain. No viewport object gizmo was reintroduced. Inline syntax and sidebar/button-handler presence checks passed. Cache: p3sculpt-armature-1.0.1-r4.
-Correction r5 verified in Chrome: side-panel Move, Rotate, Scale buttons were visible and clicked through the actual UI. Each tool transformed a rotated/scaled cube with mouse and emulated touch; no sculpt or camera changes occurred. Undo/Redo passed for all six combinations. The bottom p3AxisDock element count was zero. No JavaScript errors. Header identifies this revision as SIDE TOOLS r5. These checks used a local server and the shipped app with test-only state hooks injected by the harness; hooks are not included in the app.
+These are representative tests, not exhaustive checks of every browser/model/tool. Physical iPhone speed/memory, physical pen behavior, every external GLB application, complex/open/nonmanifold merge inputs and production-quality shoulder/finger weighting remain unverified. The animation system keys local rotations; it has no IK, root-motion/position keys, joint limits or multiple clips per rig. Automatic weights are starting weights, and generic skeleton placement needs fitting.
+
+Tests captured the exact generated Blob bytes instead of relying on the OS/browser Downloads flow, which was canceled in this environment. Test-only hooks were inserted by a local server and are absent from the shipped app. Full physical-device offline/PWA installation behavior was not rerun. The published site was not changed by this chat.
+
+
+## Header slider r8
+
+Tested the revised app in desktop (1440px, then resized to 900px) and phone (390px) Chrome contexts. Every main header action (Sculpt, Camera, Undo, Redo, Focus, Save, Open, Export OBJ, theme and Armature) was visible and could be scrolled fully into view. Native slider Home/End reached both ends with synchronized disabled arrow buttons. Arrow scrolling worked. The actual Armature button opened its panel and Close worked after reparenting. Phone native swipe and touch slider dragging worked. Desktop header dragging and window resizing retained the slider behavior. The bottom object bar was absent. No application JavaScript errors were recorded. Existing r7 armature/animation checks above were run before this header-only revision; its Armature action was rechecked in r8.
