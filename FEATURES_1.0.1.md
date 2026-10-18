@@ -83,3 +83,9 @@ Latest features (r19-scene-groups):
 Current version: Scene Groups / Layers removed. Scene Objects uses the standard object list. Face Editor and all 23 closed welded presets remain.
 
 Simple checked-object transforms: each Scene Object now has a checkbox. Check multiple objects and use Move, Rotate or Scale normally; the active checked object drives the other checked objects. Unchecked objects edit separately. Applies to viewport handles, object drags and precision sliders; snap settings remain available. Check selections persist in projects and undo. No layer system or separate group panel.
+
+Performance and keyboard update (r22-optimized-hotkeys):
+- Merge and Voxel Remesh now use projected-triangle scan conversion in a cancellable background Web Worker. Detailed heads are no longer rejected by the old triangles-times-rays estimate. Source-data memory, voxel-grid, overlap, processing-time and output-triangle limits remain. Cancel, failed processing and disconnected inputs keep source objects. Voxel edge contacts are regularized before surface extraction to keep closed surfaces.
+- Rendering pauses while the document is hidden; measurement updates are throttled to 10 Hz and mesh-stat polling skips hidden settings.
+- Interface & layout > Keyboard shortcuts: enable/disable, Set a custom combination, Clear, Restore defaults, conflict detection and browser-key protection. Saved locally. Letter keys follow the active keyboard layout. Keyboard shortcuts pause in typing fields, the welcome screen and mesh-processing dialogs.
+- Defaults: G Move, R Rotate, S Scale, B Sculpt, C Camera, F Focus, P Paint, Ctrl+Z Undo, Ctrl+Shift+Z Redo, Ctrl+S Save, Ctrl+O Open, Shift+F Face selection, Delete selected faces (only in Face Editor), Alt+R Render PNG, Shift+G Grid, Alt+A Uncheck objects, 1–7 Sculpt brushes. Ctrl also accepts Command on Mac.

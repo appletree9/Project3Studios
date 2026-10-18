@@ -559,7 +559,7 @@ function updateMeasures(){const visible=$('measureVisible').checked&&!renderView
 ['measureVisible','measureUnits','measureScale','measureAll'].forEach(id=>$(id).addEventListener('input',()=>{lastMeasureKey='';updateMeasures()}));
 $('measureSTL').onclick=()=>{const meshes=$('measureAll').checked?items.map(o=>o.mesh):selected?[selected]:[];if(!meshes.length){toast('Select a mesh first');return}try{const lines=['solid Project3Studios'];let triangles=0;const a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),normal=new THREE.Vector3(),ab=new THREE.Vector3(),ac=new THREE.Vector3();const scale=mmPerUnit();for(const m of meshes){m.updateWorldMatrix(true,false);const g=m.geometry,pos=g.getAttribute('position'),idx=g.index;const count=idx?idx.count:pos.count;for(let j=0;j+2<count;j+=3){const ids=[j,j+1,j+2].map(k=>idx?idx.getX(k):k);a.fromBufferAttribute(pos,ids[0]).applyMatrix4(m.matrixWorld).multiplyScalar(scale);b.fromBufferAttribute(pos,ids[1]).applyMatrix4(m.matrixWorld).multiplyScalar(scale);c.fromBufferAttribute(pos,ids[2]).applyMatrix4(m.matrixWorld).multiplyScalar(scale);normal.crossVectors(ab.subVectors(b,a),ac.subVectors(c,a)).normalize();if(normal.lengthSq()<1e-12)continue;lines.push(`facet normal ${normal.x} ${normal.y} ${normal.z}`,'outer loop',`vertex ${a.x} ${a.y} ${a.z}`,`vertex ${b.x} ${b.y} ${b.z}`,`vertex ${c.x} ${c.y} ${c.z}`,'endloop','endfacet');triangles++}}lines.push('endsolid Project3Studios');const blob=new Blob([lines.join('\n')],{type:'model/stl'});const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='Project3Studios_Sculpt_mm.stl';link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);toast('STL exported: '+triangles+' triangles, millimeter scale')}catch(err){toast('STL export failed: '+err.message)}};
 
-add('Sphere');history=[snapshot()];window.addEventListener('resize',()=>{updateCameraProjection();renderer.setSize(innerWidth,innerHeight)});renderer.setAnimationLoop(()=>{animateWorldSnap();updateMeasures();updateAxisGizmo();renderer.render(scene,camera)});
+let lastMeasureUpdate=0;add('Sphere');history=[snapshot()];window.addEventListener('resize',()=>{updateCameraProjection();renderer.setSize(innerWidth,innerHeight)});renderer.setAnimationLoop(now=>{if(document.hidden)return;animateWorldSnap();if(now-lastMeasureUpdate>100){updateMeasures();lastMeasureUpdate=now}updateAxisGizmo();renderer.render(scene,camera)});
 
 // Touch workspace: floating panels and synchronized fast brush adjustments.
 const dockButtons=[...document.querySelectorAll('[data-dock]')];
@@ -672,7 +672,7 @@ const voxelMaxTriangles=voxelMobile?25000:100000;
 voxelResEl.max=voxelMobile?'40':'80';
 if(voxelMobile){voxelResEl.value='24';voxelSmoothEl.value='1';}
 $('voxelResolutionValue').textContent=voxelResEl.value;
-$('voxelSafetyInfo').textContent=voxelMobile?'Phone/tablet detected: low-detail default and strict memory/workload limits. Save before remeshing.':'Safety checks estimate mesh complexity, voxel count and memory use before processing.';
+$('voxelSafetyInfo').textContent=voxelMobile?'Phone/tablet: lower-detail defaults and memory limits. Processing runs in the background and can be cancelled.':'Detailed meshes process in the background. Memory and output limits remain; Cancel keeps the source mesh.';
 function voxelEstimate(mesh,res){
  const geo=mesh.geometry;geo.computeBoundingBox();const sz=new THREE.Vector3();geo.boundingBox.getSize(sz);
  const max=Math.max(sz.x,sz.y,sz.z);if(!(max>1e-8))return {cells:0,rays:0,triangles:0,work:0};
@@ -683,7 +683,42 @@ function voxelEstimate(mesh,res){
 
 voxelResEl.addEventListener('input',()=>{$('voxelResolutionValue').textContent=voxelResEl.value});
 voxelSmoothEl.addEventListener('input',()=>{$('voxelSmoothValue').textContent=voxelSmoothEl.value});
-function buildVoxelGeometry(mesh,res,passes){
+// Separate surface fans that meet only at voxel corners/edges. Each fan keeps
+// its own vertex, preventing four faces from sharing a single surface edge.
+function splitVoxelSurfaceFans(verts,faces,owners){
+ const source=faces.slice(),count=verts.length/3,incident=Array.from({length:count},()=>[]),edges=new Map();
+ for(let i=0;i<source.length;i+=3){for(let j=0;j<3;j++){const a=source[i+j],b=source[i+(j+1)%3];incident[a].push(i/3);const key=Math.min(a,b)*count+Math.max(a,b);if(!edges.has(key))edges.set(key,[]);edges.get(key).push(i/3)}}
+ for(let v=0;v<count;v++){const pending=new Set(incident[v]);let component=0;while(pending.size){const stack=[pending.values().next().value],fan=[];pending.delete(stack[0]);while(stack.length){const f=stack.pop();fan.push(f);for(let j=0;j<3;j++){const other=source[f*3+j];if(other===v)continue;const neighbors=edges.get(Math.min(v,other)*count+Math.max(v,other));if(neighbors)for(const next of neighbors)if((neighbors.length===2||owners[next]===owners[f])&&pending.delete(next))stack.push(next)}}if(component++){const replacement=verts.length/3;verts.push(verts[v*3],verts[v*3+1],verts[v*3+2]);for(const f of fan)for(let j=0;j<3;j++)if(source[f*3+j]===v)faces[f*3+j]=replacement}}}
+}
+
+function voxelScanKernel(data){
+ const {geometries,origin,step,nx,ny,nz,budget}=data,filled=new Uint8Array(nx*ny*nz);let visits=0,crossingCount=0;
+ for(const geo of geometries){const p=geo.positions,idx=geo.indices,rows=new Array(ny*nz),length=idx?idx.length:p.length/3;
+  for(let f=0;f<length;f+=3){const a=(idx?idx[f]:f)*3,b=(idx?idx[f+1]:f+1)*3,c=(idx?idx[f+2]:f+2)*3;
+   const ax=p[a],ay=p[a+1],az=p[a+2],bx=p[b],by=p[b+1],bz=p[b+2],cx=p[c],cy=p[c+1],cz=p[c+2];
+   if(![ax,ay,az,bx,by,bz,cx,cy,cz].every(Number.isFinite))throw Error('Mesh contains invalid coordinates');
+   const determinant=(by-cy)*(az-cz)+(cz-bz)*(ay-cy);if(Math.abs(determinant)<1e-18)continue;
+   const y0=Math.max(0,Math.ceil((Math.min(ay,by,cy)-origin[1])/step-.5)),y1=Math.min(ny-1,Math.floor((Math.max(ay,by,cy)-origin[1])/step-.5));
+   const z0=Math.max(0,Math.ceil((Math.min(az,bz,cz)-origin[2])/step-.5)),z1=Math.min(nz-1,Math.floor((Math.max(az,bz,cz)-origin[2])/step-.5));
+   for(let z=z0;z<=z1;z++)for(let y=y0;y<=y1;y++){if(++visits>budget)throw Error('This mesh needs more processing than this device allows. Lower Detail; sources kept.');const yy=origin[1]+(y+.5)*step,zz=origin[2]+(z+.5)*step,u=((by-cy)*(zz-cz)+(cz-bz)*(yy-cy))/determinant,v=((cy-ay)*(zz-cz)+(az-cz)*(yy-cy))/determinant,w=1-u-v;if(u< -1e-9||v< -1e-9||w< -1e-9)continue;const row=z*ny+y;if(!rows[row])rows[row]=[];if(++crossingCount>2000000)throw Error('Too many overlapping surfaces for available memory; lower Detail. Sources kept.');rows[row].push(u*ax+v*bx+w*cx)}
+  }
+  for(let z=0;z<nz;z++)for(let y=0;y<ny;y++){const row=rows[z*ny+y];if(!row)continue;row.sort((a,b)=>a-b);let count=0;for(let i=0;i<row.length;i++)if(!count||Math.abs(row[i]-row[count-1])>step*1e-5)row[count++]=row[i];for(let k=0;k+1<count;k+=2){const lo=Math.max(0,Math.ceil((row[k]-origin[0])/step-.5)),hi=Math.min(nx-1,Math.floor((row[k+1]-origin[0])/step-.5));for(let x=lo;x<=hi;x++)filled[x+nx*(y+ny*z)]=1}}
+ }
+ // Resolve edge-only checkerboard contacts before extracting the surface.
+ const cell=(x,y,z)=>x+nx*(y+ny*z),score=n=>{const x=n%nx,y=Math.floor(n/nx)%ny,z=Math.floor(n/(nx*ny));return (x>0?filled[n-1]:0)+(x<nx-1?filled[n+1]:0)+(y>0?filled[n-nx]:0)+(y<ny-1?filled[n+nx]:0)+(z>0?filled[n-nx*ny]:0)+(z<nz-1?filled[n+nx*ny]:0)};
+ let bridged=0;for(let pass=0;pass<32;pass++){let changed=0;for(let z=0;z<nz;z++)for(let y=0;y<ny;y++)for(let x=0;x<nx;x++){const a=cell(x,y,z);for(const [u,v,valid]of [[1,nx,x<nx-1&&y<ny-1],[1,nx*ny,x<nx-1&&z<nz-1],[nx,nx*ny,y<ny-1&&z<nz-1]]){if(!valid)continue;const b=a+u,c=a+v,d=a+u+v;let first,second;if(filled[a]&&filled[d]&&!filled[b]&&!filled[c]){first=b;second=c}else if(!filled[a]&&!filled[d]&&filled[b]&&filled[c]){first=a;second=d}else continue;filled[score(first)>=score(second)?first:second]=1;changed++;bridged++}}if(!changed)break}
+ return {filled,visits,bridged};
+}
+let voxelWorkerBusy=false;
+async function scanSolidInWorker(geos,origin,step,nx,ny,nz){
+ if(voxelWorkerBusy)throw Error('Another mesh operation is running');
+ const bytes=geos.reduce((n,g)=>n+g.attributes.position.array.byteLength+(g.index?.array.byteLength||0),0);if(bytes>(voxelMobile?64:160)*1024*1024)throw Error('Source mesh data exceeds device memory limit; sources kept.');
+ const geometries=geos.map(g=>({positions:g.attributes.position.array.slice(),indices:g.index?g.index.array.slice():null})),data={geometries,origin:origin.toArray(),step,nx,ny,nz,budget:voxelMobile?20000000:80000000};
+ const modal=document.createElement('dialog');modal.style.cssText='max-width:320px;padding:22px;border-radius:14px;background:#243348;color:white;border:1px solid #8293ad';modal.innerHTML='<strong>Processing mesh…</strong><p>The background worker is building the solid. Your source objects are kept until it succeeds.</p><button type="button">Cancel</button>';document.body.append(modal);modal.showModal();voxelWorkerBusy=true;
+ try{return await new Promise((resolve,reject)=>{let worker,url,timer,done=false;const finish=(error,result)=>{if(done)return;done=true;clearTimeout(timer);worker?.terminate();if(url)URL.revokeObjectURL(url);if(error)reject(error);else resolve(result)};try{url=URL.createObjectURL(new Blob(['const scan='+voxelScanKernel.toString()+';onmessage=e=>{try{const r=scan(e.data);postMessage(r,[r.filled.buffer])}catch(error){postMessage({error:error.message})}}'],{type:'text/javascript'}));worker=new Worker(url);worker.onmessage=e=>e.data.error?finish(Error(e.data.error)):finish(null,e.data);worker.onerror=e=>finish(Error(e.message||'Background mesh processing failed'));modal.querySelector('button').onclick=()=>finish(Error('Cancelled; source objects kept.'));modal.addEventListener('cancel',e=>{e.preventDefault();finish(Error('Cancelled; source objects kept.'))});timer=setTimeout(()=>finish(Error('Processing timed out; lower Detail. Source objects kept.')),45000);worker.postMessage(data,geometries.flatMap(g=>g.indices?[g.positions.buffer,g.indices.buffer]:[g.positions.buffer]))}catch(error){finish(error)}})}finally{voxelWorkerBusy=false;modal.close();modal.remove()}
+}
+
+async function buildVoxelGeometry(mesh,res,passes){
  const geo=mesh.geometry, bounds=geo.boundingBox?geo.boundingBox.clone():(geo.computeBoundingBox(),geo.boundingBox.clone());
  const size=new THREE.Vector3();bounds.getSize(size);
  const maxDim=Math.max(size.x,size.y,size.z);
@@ -691,36 +726,17 @@ function buildVoxelGeometry(mesh,res,passes){
  const step=maxDim/res, nx=Math.max(1,Math.ceil(size.x/step)+2),ny=Math.max(1,Math.ceil(size.y/step)+2),nz=Math.max(1,Math.ceil(size.z/step)+2);
  const total=nx*ny*nz;if(total>1100000)throw Error('Voxel grid too large');
  const origin=bounds.min.clone().addScalar(-step);
- const filled=new Uint8Array(total),index=(x,y,z)=>x+nx*(y+ny*z);
- const probes=(mesh.unionGeometries||[geo]).map(g=>{const p=new THREE.Mesh(g,new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));p.updateMatrixWorld(true);return p});
- const caster=new THREE.Raycaster();caster.far=(nx+2)*step;
- const dir=new THREE.Vector3(1,0,0),from=new THREE.Vector3();
- for(let z=0;z<nz;z++)for(let y=0;y<ny;y++){
-  from.set(origin.x-step*2,origin.y+(y+.5)*step,origin.z+(z+.5)*step);
-  caster.set(from,dir);
-  for(const probe of probes){
-  const hits=caster.intersectObject(probe,false);
-  const crossings=[];
-  for(const h of hits){const x=h.point.x;if(!crossings.length||Math.abs(x-crossings[crossings.length-1])>step*0.015)crossings.push(x);}
-  for(let k=0;k+1<crossings.length;k+=2){
-   const a=crossings[k],b=crossings[k+1];
-   for(let x=Math.max(0,Math.floor((a-origin.x)/step));x<nx&&origin.x+(x+.5)*step<b;x++){
-    if(origin.x+(x+.5)*step>a)filled[index(x,y,z)]=1;
-   }
-  }
- }
- }
- probes.forEach(p=>p.material.dispose());
+ const index=(x,y,z)=>x+nx*(y+ny*z);const scan=await scanSolidInWorker(mesh.unionGeometries||[geo],origin,step,nx,ny,nz),filled=scan.filled;buildVoxelGeometry.lastStats={visits:scan.visits,triangles:(mesh.unionGeometries||[geo]).reduce((n,g)=>n+(g.index?g.index.count:g.attributes.position.count)/3,0),rays:ny*nz};
  if(mesh.unionGeometries){const seen=new Uint8Array(total),queue=new Int32Array(total);let components=0;for(let i=0;i<total;i++)if(filled[i]&&!seen[i]){components++;if(components>1)throw Error("Objects do not form one connected solid at this Detail. Move them into overlap (or increase Detail for thin contacts); sources kept.");let start=0,end=1;queue[0]=i;seen[i]=1;while(start<end){const n=queue[start++],x=n%nx,y=Math.floor(n/nx)%ny,z=Math.floor(n/(nx*ny));for(const [xx,yy,zz] of [[x-1,y,z],[x+1,y,z],[x,y-1,z],[x,y+1,z],[x,y,z-1],[x,y,z+1]])if(xx>=0&&xx<nx&&yy>=0&&yy<ny&&zz>=0&&zz<nz){const k=index(xx,yy,zz);if(filled[k]&&!seen[k]){seen[k]=1;queue[end++]=k}}}}}
  let count=0;for(const v of filled)count+=v;
  if(!count)throw Error('No solid voxels detected. Try a closed mesh, not an open plane.');
  // Shared corner vertices enable smoothing and keep export size reasonable.
- const verts=[],faces=[],corners=new Map();
+ const verts=[],faces=[],faceOwners=[],corners=new Map();let surfaceOwner=0;
  function corner(x,y,z){const key=x+','+y+','+z;let n=corners.get(key);if(n===undefined){n=verts.length/3;verts.push(origin.x+x*step,origin.y+y*step,origin.z+z*step);corners.set(key,n);}return n;}
- function quad(points){const a=corner(...points[0]),b=corner(...points[1]),c=corner(...points[2]),d=corner(...points[3]);faces.push(a,b,c,a,c,d);}
+ function quad(points){const a=corner(...points[0]),b=corner(...points[1]),c=corner(...points[2]),d=corner(...points[3]);faces.push(a,b,c,a,c,d);faceOwners.push(surfaceOwner,surfaceOwner);}
  const inside=(x,y,z)=>x>=0&&x<nx&&y>=0&&y<ny&&z>=0&&z<nz&&filled[index(x,y,z)];
  for(let z=0;z<nz;z++)for(let y=0;y<ny;y++)for(let x=0;x<nx;x++)if(inside(x,y,z)){
-  if(!inside(x-1,y,z))quad([[x,y,z],[x,y,z+1],[x,y+1,z+1],[x,y+1,z]]);
+  surfaceOwner=index(x,y,z);if(!inside(x-1,y,z))quad([[x,y,z],[x,y,z+1],[x,y+1,z+1],[x,y+1,z]]);
   if(!inside(x+1,y,z))quad([[x+1,y,z],[x+1,y+1,z],[x+1,y+1,z+1],[x+1,y,z+1]]);
   if(!inside(x,y-1,z))quad([[x,y,z],[x+1,y,z],[x+1,y,z+1],[x,y,z+1]]);
   if(!inside(x,y+1,z))quad([[x,y+1,z],[x,y+1,z+1],[x+1,y+1,z+1],[x+1,y+1,z]]);
@@ -728,6 +744,7 @@ function buildVoxelGeometry(mesh,res,passes){
   if(!inside(x,y,z+1))quad([[x,y,z+1],[x+1,y,z+1],[x+1,y+1,z+1],[x,y+1,z+1]]);
  }
  if(faces.length/3>250000)throw Error('Remesh would exceed 250,000 triangles');
+ splitVoxelSurfaceFans(verts,faces,faceOwners);
  if(passes){const adjacency=Array.from({length:verts.length/3},()=>new Set());for(let i=0;i<faces.length;i+=3){const a=faces[i],b=faces[i+1],c=faces[i+2];adjacency[a].add(b).add(c);adjacency[b].add(a).add(c);adjacency[c].add(a).add(b);}
  for(let p=0;p<passes;p++){const next=verts.slice();for(let i=0;i<adjacency.length;i++){const adj=adjacency[i];if(!adj.size)continue;let xx=0,yy=0,zz=0;for(const j of adj){xx+=verts[3*j];yy+=verts[3*j+1];zz+=verts[3*j+2];}const f=.32/adj.size;next[3*i]=verts[3*i]*.68+xx*f;next[3*i+1]=verts[3*i+1]*.68+yy*f;next[3*i+2]=verts[3*i+2]*.68+zz*f;}for(let k=0;k<next.length;k++)verts[k]=next[k];}
  }
@@ -738,25 +755,22 @@ $('voxelRemesh').addEventListener('click',()=>{
  const button=$('voxelRemesh');
  const resolution=Number(voxelResEl.value),passes=Number(voxelSmoothEl.value);
  const estimate=voxelEstimate(m,resolution);
- // Non-negotiable upper bound: the synchronous raycasting implementation can freeze devices.
- const hardWork=voxelMobile?30000000:180000000;
+ // Bound memory use; scan conversion runs off the UI thread.
  const hardCells=voxelMobile?100000:350000;
- if(resolution>voxelAbsoluteLimit||estimate.cells>hardCells||estimate.work>hardWork){
+ if(resolution>voxelAbsoluteLimit||estimate.cells>hardCells){
   status.textContent='Blocked to protect your device: model/resolution too demanding. Lower resolution or simplify the mesh.';
   toast('Voxel remesh blocked by device safety limit');return;
  }
  if(voxelSafeEl.checked){
-  if(estimate.triangles>voxelMaxTriangles){status.textContent='Safety stop: mesh has '+Math.round(estimate.triangles).toLocaleString()+' triangles. Simplify it first.';return;}
+  if(estimate.triangles>(voxelMobile?500000:1500000)){status.textContent='Safety stop: mesh has '+Math.round(estimate.triangles).toLocaleString()+' triangles. Simplify it first.';return;}
   if(resolution>voxelRecommended){status.textContent='Safety stop: reduce voxel resolution to '+voxelRecommended+' or lower for this device.';return;}
-  if(estimate.work>(voxelMobile?9000000:50000000)){
-   status.textContent='Safety stop: this mesh requires too much processing. Reduce resolution or simplify geometry.';return;
-  }
+  
  }
- if(!window.confirm('Voxel remeshing can use substantial memory and may pause the app. Save your project first. Continue with '+resolution+' resolution?'))return;
+ if(!window.confirm('Voxel remeshing replaces the selected surface and may lose fine detail. Continue with '+resolution+' resolution?'))return;
  button.disabled=true;status.textContent='Remeshing… Keep this tab open.';
  // Yield to the browser so the status becomes visible before heavy geometry work.
- setTimeout(()=>{try{
-  const next=buildVoxelGeometry(m,Number(voxelResEl.value),Number(voxelSmoothEl.value));
+ setTimeout(async()=>{try{
+  const next=await buildVoxelGeometry(m,Number(voxelResEl.value),Number(voxelSmoothEl.value));
   const previous=m.geometry;m.geometry=next;const e=entry(m);if(e)e.base=new Float32Array(next.attributes.position.array);
   if(m.material?.vertexColors){m.material.vertexColors=false;m.material.needsUpdate=true;}
   previous.dispose();polyRefresh();record();status.textContent='Complete: '+polyCount(m).toLocaleString()+' triangles. Surface paint may need reapplying.';toast('Voxel remesh complete');
@@ -767,7 +781,7 @@ $('polySubdivide').onclick=()=>{const m=polyMesh();if(!m){toast('Select a mesh f
 $('polyWire').onclick=()=>{const m=polyMesh();if(!m){toast('Select a mesh first');return;}m.material.wireframe=!m.material.wireframe;$('polyWire').classList.toggle('active',m.material.wireframe);};
 $('polyOptimize').onclick=()=>{const m=polyMesh();if(!m)return;m.geometry.computeVertexNormals();m.geometry.computeBoundingSphere();m.geometry.attributes.normal.needsUpdate=true;toast('Surface normals updated');};
 $('polyStats').addEventListener('click',polyRefresh);
-setInterval(polyRefresh,650);
+setInterval(()=>{if(!document.hidden&&$('polyStats').getClientRects().length)polyRefresh()},1000);
 
 
 // Project3Studios: independent per-slider snapping and material export.
@@ -1059,8 +1073,8 @@ const mergeChosen=new Set();function refreshMergeList(){$('mergeList').replaceCh
 const baseRefreshObjects=refreshObjects;refreshObjects=()=>{baseRefreshObjects();refreshMergeList()};refreshMergeList();
 for(const id of ['mergeDetail','mergeSmooth'])$(id).oninput=()=>$(id+'Out').textContent=$(id).value;
 if(voxelMobile){$('mergeDetail').max=32;$('mergeDetail').value=24;$('mergeDetailOut').textContent='24'}
-function mergeSolids(meshes,res,passes){const geos=meshes.map(m=>{m.updateWorldMatrix(true,false);return m.geometry.clone().applyMatrix4(m.matrixWorld)});let result;try{const bounds=new THREE.Box3();geos.forEach(g=>{g.computeBoundingBox();bounds.union(g.boundingBox)});const placeholder=new THREE.BufferGeometry();placeholder.boundingBox=bounds;const triangles=geos.reduce((n,g)=>n+(g.index?g.index.count:g.attributes.position.count)/3,0),size=bounds.getSize(new THREE.Vector3()),step=Math.max(size.x,size.y,size.z)/res,ny=Math.ceil(size.y/step)+2,nz=Math.ceil(size.z/step)+2,work=ny*nz*triangles;if(triangles>(voxelMobile?25000:150000)||work>(voxelMobile?30000000:180000000))throw Error('Device workload limit: lower Detail or simplify source meshes. Sources kept.');result=buildVoxelGeometry({geometry:placeholder,unionGeometries:geos},res,passes);return result}finally{geos.forEach(g=>g.dispose())}}
-async function executeMerge(){const meshes=items.filter(o=>mergeChosen.has(o.mesh.uuid)).map(o=>o.mesh);if(meshes.length<2){$('mergeStatus').textContent='Check at least two objects.';return}if(meshes.length>12){$('mergeStatus').textContent='Merge up to 12 objects at a time.';return}$('mergeGo').disabled=true;$('mergeStatus').textContent='Fusing solid volumes…';await new Promise(r=>setTimeout(r,40));try{const geometry=mergeSolids(meshes,Number($('mergeDetail').value),Number($('mergeSmooth').value)),material=originalMaterial(meshes[0]).clone();material.vertexColors=false;const mesh=new THREE.Mesh(geometry,material);mesh.name='Blended Mesh '+nextId++;storeRig();if(meshes.includes(rigOriginal))releaseRig();for(const source of meshes){scene.remove(source);const i=items.findIndex(o=>o.mesh===source);items.splice(i,1);source.geometry.dispose();source.material.dispose()}scene.add(mesh);items.push({mesh,type:'Blended',base:geometry.attributes.position.array.slice(),adj:null});mergeChosen.clear();select(mesh);record();$('mergeStatus').textContent='Fused into one connected sculptable mesh. Paint can now be reapplied.';toast('Blend complete')}catch(e){$('mergeStatus').textContent=e.message;toast('Blend stopped — sources kept')}finally{$('mergeGo').disabled=false}}
+async function mergeSolids(meshes,res,passes){const sourceBytes=meshes.reduce((n,m)=>n+m.geometry.attributes.position.array.byteLength+(m.geometry.index?.array.byteLength||0),0);if(sourceBytes>(voxelMobile?64:160)*1024*1024)throw Error('Source mesh data exceeds device memory limit; sources kept.');const geos=meshes.map(m=>{m.updateWorldMatrix(true,false);return m.geometry.clone().applyMatrix4(m.matrixWorld)});try{const bounds=new THREE.Box3();geos.forEach(g=>{g.computeBoundingBox();bounds.union(g.boundingBox)});const placeholder=new THREE.BufferGeometry();placeholder.boundingBox=bounds;return await buildVoxelGeometry({geometry:placeholder,unionGeometries:geos},res,passes)}finally{geos.forEach(g=>g.dispose())}}
+async function executeMerge(){const meshes=items.filter(o=>mergeChosen.has(o.mesh.uuid)).map(o=>o.mesh);if(meshes.length<2){$('mergeStatus').textContent='Check at least two objects.';return}if(meshes.length>12){$('mergeStatus').textContent='Merge up to 12 objects at a time.';return}$('mergeGo').disabled=true;$('mergeStatus').textContent='Fusing solid volumes…';await new Promise(r=>setTimeout(r,40));try{const geometry=await mergeSolids(meshes,Number($('mergeDetail').value),Number($('mergeSmooth').value)),material=originalMaterial(meshes[0]).clone();material.vertexColors=false;const mesh=new THREE.Mesh(geometry,material);mesh.name='Blended Mesh '+nextId++;storeRig();if(meshes.includes(rigOriginal))releaseRig();for(const source of meshes){scene.remove(source);const i=items.findIndex(o=>o.mesh===source);items.splice(i,1);source.geometry.dispose();source.material.dispose()}scene.add(mesh);items.push({mesh,type:'Blended',base:geometry.attributes.position.array.slice(),adj:null});mergeChosen.clear();select(mesh);record();$('mergeStatus').textContent='Fused into one connected sculptable mesh. Paint can now be reapplied.';toast('Blend complete')}catch(e){$('mergeStatus').textContent=e.message;toast('Blend stopped — sources kept')}finally{$('mergeGo').disabled=false}}
 $('mergeGo').onclick=executeMerge;
 
 // Header r8: every action stays available in a scrollable track with explicit controls.
@@ -1140,6 +1154,28 @@ for(const id of ['x','y','z','scale','rx','ry','rz']){const input=$(id),original
 const checkedSnapshot=snapshot;snapshot=()=>checkedSnapshot().map((d,i)=>({...d,transformChecked:transformChecked.has(items[i].mesh.uuid)}));
 const checkedRestore=restore;restore=data=>{transformChecked.clear();checkedRestore(data);data.forEach((d,i)=>{if(d.transformChecked&&items[i])transformChecked.add(items[i].mesh.uuid)});refreshObjects()};
 refreshObjects();
+
+const shortcutActions=[
+ ['move','Move','G',()=>document.querySelector('[data-transform="move"]').click()],['rotate','Rotate','R',()=>document.querySelector('[data-transform="rotate"]').click()],['scale','Scale','S',()=>document.querySelector('[data-transform="scale"]').click()],
+ ['sculpt','Sculpt','B',()=>document.querySelector('[data-transform="none"]').click()],['camera','Navigate camera','C',()=>{transformTool='none';document.querySelectorAll('[data-transform]').forEach(b=>b.classList.remove('active'));$('orbitMode').click()}],['focus','Focus object','F',()=>$('focus').click()],['paint','Paint workspace','P',()=>{transformTool='none';document.querySelector('[data-workspace="paint"]').click()}],
+ ['undo','Undo','Ctrl+Z',()=>!$('rigPanel').hidden?$('rigUndo').click():undo()],['redo','Redo','Ctrl+Shift+Z',()=>!$('rigPanel').hidden?$('rigRedo').click():redo()],['save','Save project','Ctrl+S',()=>$('p3SaveProject').click()],['open','Open project','Ctrl+O',()=>$('p3OpenProject').click()],
+ ['faces','Select faces','Shift+F',()=>{$('p3FaceMode').click();window.p3SettingsReveal?.('mesh')}],['deleteFaces','Delete selected faces','Delete',()=>{if(faceEditingEnabled())$('p3FaceDelete').click()}],['render','Render PNG','Alt+R',()=>$('capture').click()],['grid','Toggle ground grid','Shift+G',()=>$('grid').click()],['clearChecks','Uncheck all objects','Alt+A',()=>{transformChecked.clear();refreshObjects()}],
+ ...tools.map(([label,id],i)=>['brush-'+id,label+' brush',String(i+1),()=>{document.querySelector('[data-transform="none"]').click();document.querySelector('#tools [data-tool="'+id+'"]').click()}])
+];
+const keyboardPanel=document.createElement('section');keyboardPanel.id='p3KeyboardSettings';keyboardPanel.innerHTML='<div class="heading">KEYBOARD SHORTCUTS</div><label><input id="p3ShortcutsEnabled" type="checkbox" checked> Enable shortcuts</label><p class="tiny">Choose Set, then press your shortcut. Ctrl also works as Command on Mac. Shortcuts pause while typing, on the home screen and during mesh processing.</p><div id="p3ShortcutRows"></div><button type="button" id="p3ShortcutDefaults">Restore default shortcuts</button><p class="tiny" id="p3ShortcutStatus" role="status">Your controls are saved on this device.</p>';$('right').append(keyboardPanel);
+const shortcutDefaults=Object.fromEntries(shortcutActions.map(([id,,key])=>[id,key]));let shortcutBindings={...shortcutDefaults},shortcutEnabled=true,shortcutRecording=null;const shortcutReserved=new Set(['F5','Ctrl+R','Ctrl+L','Ctrl+W','Ctrl+T','Alt+F4']);
+try{const saved=JSON.parse(localStorage.getItem('p3-keyboard-v1')||'null');if(saved){shortcutEnabled=saved.enabled!==false;for(const [id,key]of Object.entries(saved.bindings||{}))if(Object.hasOwn(shortcutDefaults,id)&&typeof key==='string'&&key.length<60&&!shortcutReserved.has(key))shortcutBindings[id]=key}}catch{}
+function saveShortcuts(){try{localStorage.setItem('p3-keyboard-v1',JSON.stringify({enabled:shortcutEnabled,bindings:shortcutBindings}))}catch{}}
+function drawShortcuts(){const rows=$('p3ShortcutRows');rows.replaceChildren();for(const [id,label]of shortcutActions){const row=document.createElement('div');row.style.cssText='display:grid;grid-template-columns:minmax(0,1fr) 43px 28px;gap:4px;align-items:center;margin:8px 0';const text=document.createElement('span');text.style.cssText='font-size:11px;overflow-wrap:anywhere';text.textContent=label+' · '+(shortcutRecording===id?'Press keys…':shortcutBindings[id]||'Not assigned');const set=document.createElement('button');set.type='button';set.textContent='Set';set.style.cssText='padding:5px;font-size:10px';set.setAttribute('aria-label','Set shortcut for '+label);set.onclick=()=>{shortcutRecording=id;$('p3ShortcutStatus').textContent='Press a shortcut for '+label+'. Escape cancels.';drawShortcuts()};const clear=document.createElement('button');clear.type='button';clear.textContent='×';clear.style.cssText='padding:5px';clear.setAttribute('aria-label','Clear shortcut for '+label);clear.onclick=()=>{shortcutBindings[id]='';shortcutRecording=null;saveShortcuts();drawShortcuts()};row.append(text,set,clear);rows.append(row)}$('p3ShortcutsEnabled').checked=shortcutEnabled}
+$('p3ShortcutsEnabled').onchange=()=>{shortcutEnabled=$('p3ShortcutsEnabled').checked;shortcutRecording=null;saveShortcuts();drawShortcuts()};$('p3ShortcutDefaults').onclick=()=>{shortcutBindings={...shortcutDefaults};shortcutRecording=null;saveShortcuts();drawShortcuts();$('p3ShortcutStatus').textContent='Default shortcuts restored.'};
+function shortcutKey(e){if(['Control','Meta','Alt','Shift','AltGraph','Dead','Unidentified'].includes(e.key))return '';const key=e.key===' '?'Space':e.key.length===1?e.key.toUpperCase():e.key;return [(e.ctrlKey||e.metaKey)?'Ctrl':'',e.altKey?'Alt':'',e.shiftKey?'Shift':'',key].filter(Boolean).join('+')}
+document.addEventListener('keydown',e=>{
+ if(e.isComposing||e.repeat)return;const key=shortcutKey(e);if(!key)return;
+ if(shortcutRecording){e.preventDefault();e.stopImmediatePropagation();if(e.key==='Escape'){shortcutRecording=null;drawShortcuts();$('p3ShortcutStatus').textContent='Shortcut unchanged.';return}if(shortcutReserved.has(key)){ $('p3ShortcutStatus').textContent='That shortcut is reserved by the browser. Choose another.';return}const conflict=shortcutActions.find(([id])=>id!==shortcutRecording&&shortcutBindings[id]===key);if(conflict){$('p3ShortcutStatus').textContent='Already assigned to '+conflict[1]+'. Clear it first or choose another.';return}shortcutBindings[shortcutRecording]=key;shortcutRecording=null;saveShortcuts();drawShortcuts();$('p3ShortcutStatus').textContent='Shortcut saved.';return}
+ if(!shortcutEnabled||voxelWorkerBusy||!$('p3Welcome').hidden||document.querySelector('dialog[open]')||e.target.closest('input,textarea,select,[contenteditable=""],[contenteditable="true"],[role="textbox"]'))return;
+ const action=shortcutActions.find(([id])=>shortcutBindings[id]===key);if(!action)return;if(action[0]==='deleteFaces'&&!faceEditingEnabled())return;if(['move','rotate','scale','sculpt','paint'].includes(action[0])&&!$('rigPanel').hidden){toast('Close Armature Studio to use object tools');return}
+ e.preventDefault();e.stopImmediatePropagation();action[3]();
+},true);drawShortcuts();
 
 applyViewportBackground();</script><section hidden="" id="weightStudio"><div class="heading">HUMANOID RIG + WEIGHT PAINT</div><div class="row"><button id="humanRig">Create Humanoid</button><button id="autoWeight">Auto Weights</button></div><label>Weight Painting <input id="paintWeights" type="checkbox"/></label><label>Brush Radius <output id="weightRadiusOut">0.35</output></label><input id="weightRadius" max="1.5" min="0.05" step="0.05" type="range" value="0.35"/><div class="sliderSnap" data-for="weightRadius">Snap <input aria-label="Snap weightRadius" class="snapEnabled" type="checkbox"/><select aria-label="Snap increment for weightRadius" class="snapStep"><option value="0.05">0.05</option><option value="0.01">0.01</option><option value="0.1">0.1</option><option value="0.25">0.25</option><option value="0.5">0.5</option><option value="1">1</option><option value="5">5</option><option value="10">10</option><option value="15">15</option><option value="45">45</option></select></div><label>Brush Strength <output id="weightStrengthOut">0.25</output></label><input id="weightStrength" max="1" min="0.01" step="0.01" type="range" value="0.25"/><div class="sliderSnap" data-for="weightStrength">Snap <input aria-label="Snap weightStrength" class="snapEnabled" type="checkbox"/><select aria-label="Snap increment for weightStrength" class="snapStep"><option value="0.01">0.01</option><option value="0.05">0.05</option><option value="0.1">0.1</option><option value="0.25">0.25</option><option value="0.5">0.5</option><option value="1">1</option><option value="5">5</option><option value="10">10</option><option value="15">15</option><option value="45">45</option></select></div><div class="row"><button class="active" id="weightAdd">Add</button><button id="weightSubtract">Subtract</button></div><div class="row"><button id="weightPreview">Show Weights</button><button id="weightNormalize">Normalize</button></div><p>Choose a bone in the Bone menu. Paint its vertex influence on the visible mesh; blue = low, red = high. Use Orbit mode to rotate the camera while painting is disabled.</p></section><script id="stone-theme-controls">(function(){const picker=document.getElementById('studioAccentPicker'),reset=document.getElementById('studioAccentReset');function apply(hex){if(!/^#[0-9a-f]{6}$/i.test(hex))return;const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);document.documentElement.style.setProperty('--studio-accent',hex);document.documentElement.style.setProperty('--studio-rgb',`${r},${g},${b}`);picker.value=hex;try{localStorage.setItem('p3sculpt-ui-accent',hex)}catch(e){}}let saved='#8ca8bd';try{saved=localStorage.getItem('p3sculpt-ui-accent')||saved}catch(e){}apply(saved);picker.addEventListener('input',e=>apply(e.target.value));reset.addEventListener('click',()=>apply('#8ca8bd'));})();
 </script><style id="theme-repair-css">
@@ -1478,7 +1514,7 @@ function organize(){
  function chunks(panel,map,initial){let key=initial;for(const n of [...panel.children]){if(n.matches('.p3-free-handle,.p3-panelbar,#p3-workspace-side'))continue;if(n.classList.contains('heading'))key=map[n.textContent.trim()]||key;if(key)move(n,key)}}
  // Split the mixed mesh/render panel before grouping the rest of the inspector.
  const poly=document.getElementById('polyPanel');if(poly){chunks(poly,{'IMPORT 3D MODELS':'models','CHARACTER BASE MESHES':'models','VOXEL REMESH':'mesh','POLYGON EDITOR':'mesh','HIGH-RESOLUTION RENDER':'render'},'models');poly.hidden=true}
- const special=new Map();for(const [id,key] of [['p3FaceEditor','mesh'],['p3LightDetails','lights'],['measurePanel','view'],['backgroundPresets','view']]){const node=document.getElementById(id);if(node)special.set(node,key)}
+ const special=new Map();for(const [id,key] of [['p3KeyboardSettings','interface'],['p3FaceEditor','mesh'],['p3LightDetails','lights'],['measurePanel','view'],['backgroundPresets','view']]){const node=document.getElementById(id);if(node)special.set(node,key)}
  const lightOutline=document.getElementById('showLightOutlines');if(lightOutline)special.set(lightOutline.closest('label')?.parentElement,'lights');
  const merge=document.getElementById('mergeGo')?.closest('section');if(merge)special.set(merge,'mesh');
  let key='objects';const map={'SCENE OBJECTS':'objects','OBJECT GRAB / TRANSFORM':'objects','OBJECT ROTATION':'objects','OBJECT TRANSFORM':'objects','MATERIAL':'materials','LIGHTING RIG':'lights','RENDER CAMERA':'camera','CAMERA PROJECTION':'camera','CAMERA LENS':'camera','VIEWPORT COLOR':'view','POST PROCESSING / DISPLAY':'render','MESH ACTIONS':'mesh'};
