@@ -57,3 +57,5 @@ Scene groups: grouped two of three cubes; movement affected only group members; 
 Regression: all six snapped directional scale handles and three rotation handles passed; Standard/High/Ultra PNG export and editor state restoration passed. No browser errors.
 
 Scene Groups removal: source checked for no remaining scene group UI, visibility filtering or layer metadata handlers. Face Editor selection/delete/undo checks and all 23 closed-shape topology checks rerun.
+
+Checkbox transforms: real mouse drags verified Move/Rotate/Scale affect two checked objects and leave a third unchanged. Undo/redo restored both objects together. Numeric movement affected checked objects equally. Actual project save/reopen retained the two checks. Existing six scale and three rotation snap checks also passed. No browser errors.

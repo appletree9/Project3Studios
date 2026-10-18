@@ -81,3 +81,5 @@ Latest features (r19-scene-groups):
 - The requested previous backup remains unchanged.
 
 Current version: Scene Groups / Layers removed. Scene Objects uses the standard object list. Face Editor and all 23 closed welded presets remain.
+
+Simple checked-object transforms: each Scene Object now has a checkbox. Check multiple objects and use Move, Rotate or Scale normally; the active checked object drives the other checked objects. Unchecked objects edit separately. Applies to viewport handles, object drags and precision sliders; snap settings remain available. Check selections persist in projects and undo. No layer system or separate group panel.
