@@ -65,3 +65,5 @@ World transforms are baked into the result. The first checked object in scene-li
 `Project3Studios_V1_Sculpt_1.0.1_COMPLETE.zip` contains app/, development sources, browser test harnesses, generated test projects/GLB and continuation notes. `app/index.html` is authoritative; there is no build pipeline. `development/armature-studio-r7.js` is a readable extraction of the final rig implementation, not a separately loaded app file. Historical patch scripts are intermediate work and must not all be rerun against the final app.
 
 See TEST_RESULTS.md for final checks and limits. Ordinary OBJ/mesh exports use the rest sculpt; use the Armature GLB exporter for the skin and animation.
+
+Home page updated with current sculpting, blending, armature, posing, animation and export features, plus an application ownership and creator-content notice. Cache: r9-home.
