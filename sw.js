@@ -1,4 +1,4 @@
-const CACHE='p3sculpt-armature-1.0.1-r3';
+const CACHE='p3sculpt-armature-1.0.1-r5';
 const CORE=['./','./index.html','./anatomy-assets.js?v=6','./manifest.webmanifest','./icon-180.png','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',event=>{
  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE.map(url=>new Request(url,{cache:'reload'})))).then(()=>self.skipWaiting()));

@@ -30,9 +30,9 @@ Separated or unresolved thin contacts are rejected with instructions to overlap 
 
 Sources remain in place until geometry creation succeeds. Phone/tablet limits are stricter, Detail is capped, and estimated triangle/raycast work is checked before processing. This is a synchronous remesher after its progress message paints; complex accepted operations can briefly pause the page. Reduce Detail or simplify meshes if a workload limit is reported. Detailed full-body pairs may require simplification before fusion.
 
-## Removed object controls
+## Side-panel object controls
 
-By user request, the Move / Rotate / Scale object toolbar, its Inspector buttons, and the object viewport gizmo are completely removed. The separate skeleton joint handles remain available in Armature. Existing numeric object position/size fields remain. Earlier handle verification describes the previous build.
+Move, Rotate, Scale and Sculpt are available in the Inspector under OBJECT GRAB / TRANSFORM. Choose a tool, then drag the object in the viewport. Existing numeric controls, move constraints, grid snapping, pointer capture, project persistence and undo/redo remain. Only the floating bottom Move / Scale / Sculpt bar is removed. Skeleton joint handles remain separate.
 
 ## Verification and source
 
