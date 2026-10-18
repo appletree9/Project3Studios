@@ -30,11 +30,9 @@ Separated or unresolved thin contacts are rejected with instructions to overlap 
 
 Sources remain in place until geometry creation succeeds. Phone/tablet limits are stricter, Detail is capped, and estimated triangle/raycast work is checked before processing. This is a synchronous remesher after its progress message paints; complex accepted operations can briefly pause the page. Reduce Detail or simplify meshes if a workload limit is reported. Detailed full-body pairs may require simplification before fusion.
 
-## Object handles
+## Removed object controls
 
-Close Armature, select an object, then use **Move**, **Rotate**, or **Scale** in the Object Handles toolbar. Drag a colored arrow to move on that world axis, a colored ring to rotate around a world axis, or a colored cube to scale along that object's local axis. Handles follow the selected object's bounds. Mouse, touch and pen use pointer capture; dragging beyond the handle keeps transforming the same object and does not sculpt, paint or orbit. Move uses the existing movement-axis constraint and grid snapping. Scale is clamped to a positive range; rotation has no new snapping control. Pointer cancellation restores the starting transform.
-
-Completed transforms support main Undo/Redo and project Save/Open. Undo also keeps the transformed object selected. Drag **⠿ Handles** to reposition the toolbar on desktop or touch; its position is saved in browser storage. Object handles are hidden while the armature panel is open so joint handles can be edited without competing gestures.
+By user request, the Move / Rotate / Scale object toolbar, its Inspector buttons, and the object viewport gizmo are completely removed. The separate skeleton joint handles remain available in Armature. Existing numeric object position/size fields remain. Earlier handle verification describes the previous build.
 
 ## Verification and source
 
