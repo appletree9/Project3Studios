@@ -46,3 +46,5 @@ Face scaling: all six sides of a rotated cube tested using mouse drags; opposite
 Organized settings: checked 24 representative controls in correct categories; no duplicate element IDs; actual clicks verified Move, add Cube, painting on/off and brush selection, add light, Armature open/close, Render workspace and quality setting. Desktop and 390px mobile inspected. No browser errors.
 
 Home cleanup: removed the requested description paragraph and verified both home buttons and copyright notice remain in the upload archive.
+
+Transform snapping: all six face handles tested with 25 percent snapping on a rotated cube; opposite faces stay fixed and undo restores position/scale. Rotation ring drags for X/Y/Z produced 75/60/45 degree changes, all multiples of selected 15 degree increment. No browser errors.
