@@ -1,35 +1,13 @@
-PROJECT3STUDIOS - DETAILED ANATOMY EDITION
+Project3Studios V1 Sculpt 1.0.1 — GitHub Pages
 
-Upload all extracted ZIP contents together, including anatomy-assets.js.
+Extract the APP ZIP. Upload the CONTENTS of app/ to your Pages branch root.
+Keep index.html, anatomy-assets.js, sw.js, manifest.webmanifest and icons together.
+Settings > Pages > Deploy from a branch > main (or your source branch) > / (root).
+No build step is needed. Do not upload the ZIP itself as the website.
 
-GITHUB PAGES
-1. Extract this ZIP. In your repository use Add file > Upload files.
-2. Upload the extracted files directly to the repository root; commit changes.
-   Replace existing app files. Do not upload just the ZIP or index.html alone.
-3. Settings > Pages > Deploy from a branch > main > /(root) > Save.
-4. Open the published site link. On an existing installation, reload and close
-   and reopen old tabs/app windows so the new v5 PWA cache can take control.
+https://appletree9.github.io/Project3Studios/
 
-Detailed guide:
-https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site
-
-NEW ANATOMY
-In Tools, choose Female Body, Male Body, Female Head or Male Head.
-Human Head and Anatomical Head also use the detailed head mesh.
-Tap Focus to frame your selected model, then Sculpt to edit it.
-Existing objects remain as saved. Add a NEW anatomical preset to use these
-replacement meshes; old mannequin project files are not automatically remodeled.
-
-Adult bodies: about 54,600 vertices / 109,100 triangles each.
-Standalone heads: about 69,300 vertices / 138,600 triangles each.
-Modeled external anatomy includes fingers, toes, body landmarks, ears, nose,
-eyelids, eyeballs, lips and jaw. These are surface models, not internal-organ
-or medical-reference models. See ANATOMY_ASSETS.txt for provenance and scope.
-
-All 23 shapes, additional shades, movable Symmetry controls, and PWA files are
-retained. Higher detail uses more memory than the previous mannequins; begin
-with one anatomical model on mobile. Touch was tested in browser emulation;
-physical iPhone performance has not been measured.
-
-For iPhone installation: HTTPS site in Safari > Share > Add to Home Screen.
-Internet is required on first load for the existing Three.js CDN dependency.
+After deployment refresh once. Header: FULL HUMAN ARMATURE · VERSION 1.0.1.
+The service worker cache version is updated. First use needs internet for Three.js.
+Read FEATURES_1.0.1.md for skeleton, merge, materials and device limits.
+This release has NOT been published automatically.

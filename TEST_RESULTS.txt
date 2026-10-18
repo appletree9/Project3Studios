@@ -1,3 +1,17 @@
+VERSION 6 REGRESSION CHECKS
+PASS: All inline scripts and anatomy asset script parse.
+PASS: Actual placement function tested against decoded anatomical bounds: the
+      first head and all subsequent tested bodies/heads do not overlap the sphere.
+PASS: Portrait camera target follows the selected new model.
+PASS: All head preset aliases route to detailed geometry.
+PASS: Actual service-worker code tested in a simulated cache/network environment:
+      install bypasses old HTTP cache, navigation prefers fresh HTML, offline
+      fallback works, old app caches are removed and unrelated caches retained.
+NOTE: Version 6 has code-level regression checks; full local browser navigation
+      was unavailable. The earlier detailed anatomy edition passed browser tests
+      below. The published site was inspected and its detailed female head had
+      69,318 vertices and 138,616 triangles, matching the bundled asset.
+
 TEST RESULTS - DETAILED ANATOMY EDITION - 18 October 2026
 
 PASS: Full application startup in Chrome/WebGL without runtime script errors.
