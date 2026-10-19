@@ -108,3 +108,7 @@ Movie Editor and phone export update (r26-movie-phone-exports):
 ## Draggable quick tools (r27)
 Added a compact floating Move / Rotate / Scale / Sculpt toolbar. Drag its grip with mouse, touch or pen; position is saved and clamped to the screen. Existing sidebar tools, axis handles and snapping remain connected. Arrow keys move the focused grip; Shift moves faster.
 
+
+## Movie download feedback (r28)
+Completed movies now start the video download automatically and show a prominent fallback download link. Export errors, invalid ranges and busy processing messages are visible above the editor instead of appearing only below the controls. Browser-tested actual WebM download, decoded animated/color frames, imported animation and cancellation preserving the prior movie. Live pre-fix site also generated a 640x360 MP4 in testing; the user's exact no-response cause remains unconfirmed.
+

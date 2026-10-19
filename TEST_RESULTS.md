@@ -71,3 +71,7 @@ Very Low/Phone export tests: PNG decoded as 640x360; binary STL had 15,552 trian
 Regression tests after integration: four rig presets, real skin deformation, pose controls and rings, keyframes/playback, undo/redo, project save/open, legacy-weight repair, 82-channel GLB export/reimport/playback and touch posing passed. Checkbox transforms, face selection/deletion/undo, three snap controls, Standard/High/Ultra PNG export and viewport restoration passed. Debugger/idle rendering/memory tests and optimized dense-merge/custom-shortcut tests passed. See movie-test-results.json, movie-full-rig-results.json and phone-exports-results.json.
 
 Quick tools r27: browser verified all four button routes and active states, actual mouse dragging, reload persistence, phone viewport clamping and keyboard movement; zero page errors. Touch/pen use the same pointer-capture drag path.
+
+## Movie download feedback (r28)
+Completed movies now start the video download automatically and show a prominent fallback download link. Export errors, invalid ranges and busy processing messages are visible above the editor instead of appearing only below the controls. Browser-tested actual WebM download, decoded animated/color frames, imported animation and cancellation preserving the prior movie. Live pre-fix site also generated a 640x360 MP4 in testing; the user's exact no-response cause remains unconfirmed.
+
