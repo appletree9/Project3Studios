@@ -75,3 +75,7 @@ Quick tools r27: browser verified all four button routes and active states, actu
 ## Movie download feedback (r28)
 Completed movies now start the video download automatically and show a prominent fallback download link. Export errors, invalid ranges and busy processing messages are visible above the editor instead of appearing only below the controls. Browser-tested actual WebM download, decoded animated/color frames, imported animation and cancellation preserving the prior movie. Live pre-fix site also generated a 640x360 MP4 in testing; the user's exact no-response cause remains unconfirmed.
 
+
+## 3D Print / Flashforge (r29)
+Dedicated quick binary STL export for Flashforge and other slicers. Selected/all scene, target longest dimension in mm or keep measurement scale, automatic centering and bed placement with Z up. Corrects mirrored winding, skips zero-area triangles, validates coordinates and yields during large exports. Exports rest sculpt geometry, not animation; separate overlapping objects remain separate. Use slicer repair/preview, supports and printer/filament profiles. Browser test verified 12,096 triangles, a 100 x 100 x 100 mm model, floor at Z=0, centered XY, keep-size path, invalid-size rejection and no page errors. Download request verified; test inspected generated STL blob because automated Chrome canceled filesystem persistence. Physical printing and slicer import have not been tested.
+
